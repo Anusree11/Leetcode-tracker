@@ -2,7 +2,7 @@ from flask import Flask, request , jsonify
 import sqlite3
 from datetime import date
 
-app = Flask(__name__)
+tracker = Flask(__name__)
 DB_NAME= "leetcode_tracker.db"
 
 
@@ -15,38 +15,51 @@ def get_db_connection():
 def create_table():
     db_conn= get_db_connection()
     cursor= db_conn.execute("""
-         CREATE TABLE IF NOT EXISTS leetcode_problems(
+         CREATE TABLE IF NOT EXISTS leetcode_problems_tracker(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            data_solved TEXT,
+            date_solved TEXT,
             problem_number INTEGER,
             problem_name TEXT,
             difficulty TEXT,
-            Notes Text
+            Notes TEXT
      )
 """)
     
     db_conn.commit()
     db_conn.close()
 
+    @tracker.route("/")
+    def home():
+        return jsonify({"Message": "Leetcode tracker API is running"})
+
     @tracker.route("/add", methods=["POST"])
     def add_problem():
-        data= get_data.get_json()
+        data= request.get_json()
 
         problem_name=data.get("problem_name")
         problem_number=data.get("problem_number")
         difficulty = data.get("difficulty")
-        topic= data.get("topic")
+        #topic= data.get("topic")
         Notes=data.get("Notes")
+        
 
-        if not problem_name or not difficulty or not topic or not Notes:
-            return jsonify({"error": "All the fields are required"}), 400
+        if not problem_name:
+           return jsonify({"error": "Problem name required"}), 400
         
 
         db_conn=get_db_connection()
         cursor= db_conn.cursor()
         cursor.execute("""
-             INSERT INTO leetcode_problems(date_solved, problem_name, problem_number, difficulty,topic, Notes)
-                       VALUES (?,?,?,?,?)"""), (date.today().isoformat(), problem_name,problem_number,difficulty,topic,Notes)
+             INSERT INTO leetcode_problems_tracker
+                       (date_solved, problem_name, problem_number, difficulty, Notes)
+                       VALUES (?,?,?,?,?)""", 
+        (
+            date.today().isoformat(), 
+            problem_name,
+            problem_number,
+            difficulty,
+            Notes))
+        
         
         db_conn.commit()
         db_conn.close()
@@ -64,28 +77,35 @@ def create_table():
 
         if problem_number:
             cursor.execute(
-                "SELECT * FROM leetcode_problems WHERE problem_number=?",
+                "SELECT * FROM leetcode_problems_tracker WHERE problem_number=?",
                 (problem_number,)
             )
             rows=cursor.fetchall()
 
         elif problem_name:
             cursor.execute(
-                "SELECT * FROM leetcode_problems WHERE problem_name LIKE ?",
+                "SELECT * FROM leetcode_problems_tracker WHERE problem_name LIKE ?",
                 (f"%{problem_name}")
             )
             rows=cursor.fetchall()
 
         else:
-            cursor.execute("SELECT * FROM leetcode_problems")
+            cursor.execute("SELECT * FROM leetcode_problems_tracker")
             rows = cursor.fetchall()
 
 
 
-        conn.close()
+        db_conn.close()
 
         problems=[dict(row) for row in rows]
         return jsonify(problems), 200
+
+
+if __name__ == "__main__":
+    create_table()
+    tracker.run(debug=True)    
+
+
 
         
 
