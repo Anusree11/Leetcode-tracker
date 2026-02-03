@@ -14,16 +14,14 @@ def get_db_connection():
 
 def create_table():
     db_conn= get_db_connection()
-    cursor= db_conn.execute("""
+    db_conn.execute("""
          CREATE TABLE IF NOT EXISTS leetcode_problems_tracker(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date_solved TEXT,
             problem_number INTEGER,
             problem_name TEXT,
             difficulty TEXT,
-            Notes TEXT
-     )
-""")
+            Notes TEXT)""")
     
     db_conn.commit()
     db_conn.close()
@@ -36,43 +34,72 @@ def create_table():
     def add_problem():
         data= request.get_json()
 
-        problem_name=data.get("problem_name")
-        problem_number=data.get("problem_number")
-        difficulty = data.get("difficulty")
-        #topic= data.get("topic")
-        Notes=data.get("Notes")
-
+        problem_name=data["content"]["problem_name"]
+        print(problem_name)
+        problem_number=data["content"]["problem_number"]
+        difficulty = data["content"]["difficulty"]
+       # topic= data["content"]["topic"]
+        Notes=data["content"]["Notes"]
+        force_update=data["force_update"]
         
 
         if not problem_name:
            return jsonify({"error": "Problem name required"}), 400
         
         
-        db_conn=get_db_connection()
+        db_conn= get_db_connection()
         cursor= db_conn.cursor()
 
         cursor.execute("SELECT 1 FROM leetcode_problems_tracker WHERE problem_number = ?", (problem_number, ))
+        duplicate=cursor.fetchone()
+        print(duplicate)
 
-        if cursor.fetchone():
-            return jsonify({"error":"Problem already exists"}), 409
+        if duplicate is not None and force_update=="no":
+            #print(t)
+            output= jsonify({"Message":"Problem already exists. If you want to update change force_update=yes"})
+            print("if")
+        
+        elif duplicate is not None and force_update=="yes":
+            #print(t)
+            cursor.execute("""UPDATE leetcode_problems_tracker 
+                           SET date_solved=?,
+                           problem_name =?,
+                           difficulty = ?,
+                           Notes= ? WHERE problem_number= ?""", 
+                           (
+                               date.today().isoformat(),
+                               problem_name,
+                               problem_number,
+                               difficulty,
+                               Notes
+                           )) 
+            output= jsonify({"Message":"Problem updated succesfully with force"}), 200
+            print("elif")
+ 
 
 
-        cursor.execute("""
+
+        else:
+             cursor.execute("""
              INSERT INTO leetcode_problems_tracker
                        (date_solved, problem_name, problem_number, difficulty, Notes)
                        VALUES (?,?,?,?,?)""", 
-        (
-            date.today().isoformat(), 
-            problem_name,
-            problem_number,
-            difficulty,
-            Notes))
-        
+           (
+               date.today().isoformat(), 
+               problem_name,
+               problem_number,
+               difficulty,
+               Notes))
+            
+             output= jsonify({"Message":"Problem added succesfully"})
+             print("else")
         
         db_conn.commit()
         db_conn.close()
+        return output
 
-        return jsonify({"Message":"Problem added succesfully"})
+
+        
     
 
     @tracker.route("/problems", methods=["GET"])
