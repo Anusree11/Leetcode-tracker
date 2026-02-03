@@ -41,14 +41,22 @@ def create_table():
         difficulty = data.get("difficulty")
         #topic= data.get("topic")
         Notes=data.get("Notes")
+
         
 
         if not problem_name:
            return jsonify({"error": "Problem name required"}), 400
         
-
+        
         db_conn=get_db_connection()
         cursor= db_conn.cursor()
+
+        cursor.execute("SELECT 1 FROM leetcode_problems_tracker WHERE problem_number = ?", (problem_number, ))
+
+        if cursor.fetchone():
+            return jsonify({"error":"Problem already exists"}), 409
+
+
         cursor.execute("""
              INSERT INTO leetcode_problems_tracker
                        (date_solved, problem_name, problem_number, difficulty, Notes)
@@ -85,7 +93,7 @@ def create_table():
         elif problem_name:
             cursor.execute(
                 "SELECT * FROM leetcode_problems_tracker WHERE problem_name LIKE ?",
-                (f"%{problem_name}")
+                (f"%{problem_name}%",)
             )
             rows=cursor.fetchall()
 
